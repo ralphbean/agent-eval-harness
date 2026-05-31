@@ -1072,6 +1072,22 @@ def cmd_judges(args):
     case_dirs = _get_case_dirs(args.run_id, runs_dir)
     project_root = Path.cwd()
 
+    # Run before_scoring hooks
+    if config.hooks.before_scoring:
+        from agent_eval.hooks import build_hook_env, run_hooks
+        hook_env = build_hook_env(
+            workspace=args.workspace or "",
+            run_id=args.run_id,
+            config_path=str(Path(args.config).resolve()),
+            project_root=str(project_root),
+            model=args.model or "",
+        )
+        log_dir = runs_dir / args.run_id / "hooks"
+        print("Running before_scoring hooks...", file=sys.stderr)
+        run_hooks(config.hooks.before_scoring, env=hook_env,
+                  cwd=project_root, log_dir=log_dir,
+                  phase_name="before_scoring")
+
     judges = load_judges(config, project_root)
     print(f"Scoring {len(case_dirs)} cases with {len(judges)} judges: "
           f"{[n for n, *_ in judges]}")
@@ -1222,6 +1238,10 @@ def main():
     jdg_p = subparsers.add_parser("judges", help="Run all judges")
     jdg_p.add_argument("--run-id", required=True)
     jdg_p.add_argument("--config", required=True)
+    jdg_p.add_argument("--workspace", default=None,
+                       help="Workspace path (for before_scoring hook env vars)")
+    jdg_p.add_argument("--model", default=None,
+                       help="Skill model (for before_scoring hook env vars)")
 
     # pairwise
     pw_p = subparsers.add_parser("pairwise", help="Pairwise comparison")
